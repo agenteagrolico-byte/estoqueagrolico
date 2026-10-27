@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+
+.env
+.env.*
+!.env.example
+*.local
+
+.playwright-cli/
+output/
+*.log
+*.tsbuildinfo
+
+# Arquivos emitidos pelo TypeScript; a fonte e vite.config.ts.
+vite.config.js
+vite.config.d.ts
