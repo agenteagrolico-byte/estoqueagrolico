@@ -46,7 +46,12 @@ let items: StockItem[] = [
     5,
     "Armário controlado",
   ),
-  demoItem("Adjuvante Agrícola", 3, "BD20", 315, "ADJ-904", 95, 4, "Galpão B"),
+  {
+    ...demoItem("Viridian COMO 15", 3, "GL", 315, "ADJ-904", 95, 4, "Galpão B"),
+    gallon_count: 3,
+    gallon_volume_liters: 5,
+    quantity_liters: 15,
+  },
   demoItem(
     "Semente de Cobertura",
     120,

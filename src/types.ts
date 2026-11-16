@@ -17,6 +17,9 @@ export type StockItem = {
   description: string;
   quantity: number;
   unit: string;
+  gallon_count?: number | null;
+  gallon_volume_liters?: number | null;
+  quantity_liters?: number | null;
   batch_number: string | null;
   expires_on: string | null;
   unit_price: number;

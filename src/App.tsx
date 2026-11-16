@@ -935,7 +935,7 @@ function Overview({
                   />
                 </span>
                 <strong>
-                  {number.format(item.quantity)} {item.unit}
+                  {formatStockBalance(item)}
                 </strong>
               </button>
             ))}
@@ -1092,7 +1092,10 @@ function InventoryTable({
                   </button>
                 </td>
                 <td data-label="Saldo" className="quantity-cell">
-                  <strong>{number.format(item.quantity)}</strong> {item.unit}
+                  <strong>{formatPrimaryStockQuantity(item)}</strong>
+                  {isGallonStock(item) && (
+                    <small className="gallon-detail">{formatGallonDetail(item)}</small>
+                  )}
                   <small>Mín. {number.format(item.minimum_quantity)}</small>
                 </td>
                 <td data-label="Validade">
@@ -1783,7 +1786,7 @@ function ItemModal({
               <div className="current-balance">
                 Saldo atual{" "}
                 <strong>
-                  {number.format(item?.quantity ?? 0)} {item?.unit}
+                  {item ? formatStockBalance(item) : "0"}
                 </strong>
               </div>
               <label>
@@ -2161,7 +2164,7 @@ function InvoiceModal({
                 <span>
                   Quantidade
                   <strong>
-                    {number.format(item.quantity)} {item.unit}
+                    {formatStockBalance(item)}
                   </strong>
                 </span>
                 <span>
@@ -2251,8 +2254,35 @@ function alertDetail(item: StockItem) {
     return `Venceu há ${Math.abs(item.days_to_expiry ?? 0)} dias`;
   if (item.status === "expiring") return `Vence em ${item.days_to_expiry} dias`;
   if (item.status === "low")
-    return `${number.format(item.quantity)} ${item.unit} · mínimo ${number.format(item.minimum_quantity)}`;
+    return `${formatStockBalance(item)} · mínimo ${number.format(item.minimum_quantity)}`;
   return "Saldo zerado";
+}
+
+function isGallonStock(item: StockItem) {
+  return (
+    item.unit?.trim().toUpperCase() === "GL" &&
+    item.gallon_count != null &&
+    item.gallon_volume_liters != null &&
+    item.quantity_liters != null
+  );
+}
+
+function formatPrimaryStockQuantity(item: StockItem) {
+  if (isGallonStock(item)) return `${number.format(item.quantity_liters!)} L`;
+  return `${number.format(item.quantity)} ${item.unit}`;
+}
+
+function formatGallonDetail(item: StockItem) {
+  if (!isGallonStock(item)) return "";
+  const count = item.gallon_count!;
+  const label = count === 1 ? "galão" : "galões";
+  return `${number.format(count)} ${label} de ${number.format(item.gallon_volume_liters!)} L`;
+}
+
+function formatStockBalance(item: StockItem) {
+  const primary = formatPrimaryStockQuantity(item);
+  const gallons = formatGallonDetail(item);
+  return gallons ? `${primary} · ${gallons}` : primary;
 }
 function permissionList(role: string) {
   if (role === "manager")

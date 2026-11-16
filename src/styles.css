@@ -193,6 +193,15 @@ tbody tr:hover { background: #fbfcf8; }
 .product-cell { min-width: 190px; display: grid; gap: 3px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .product-cell b { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .product-cell span, .quantity-cell small { display: block; color: var(--muted); font-size: 9px; }
+.quantity-cell .gallon-detail { color: #26543c; font-weight: 700; }
+
+@media (max-width: 760px) {
+  .inventory-table .quantity-cell .gallon-detail {
+    display: block;
+    flex: 0 0 100%;
+    font-size: 9px;
+  }
+}
 .source-tag { padding: 5px 7px; color: #43584a; background: #edf1e9; border-radius: 3px; font-size: 8px; font-weight: 700; }
 .status { display: inline-flex; align-items: center; gap: 6px; width: max-content; padding: 5px 8px; border-radius: 3px; font-size: 8px; font-weight: 800; white-space: nowrap; }
 .status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
