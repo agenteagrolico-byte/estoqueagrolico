@@ -1,5 +1,6 @@
 import type {
   DashboardData,
+  InventorySortKey,
   InventoryDocument,
   Movement,
   StockItem,
@@ -50,7 +51,17 @@ let items: StockItem[] = [
     ...demoItem("Viridian COMO 15", 3, "GL", 315, "ADJ-904", 95, 4, "Galpão B"),
     gallon_count: 3,
     gallon_volume_liters: 5,
+    package_count: 3,
+    package_unit: "GL",
+    package_volume_liters: 5,
     quantity_liters: 15,
+  },
+  {
+    ...demoItem("Adjuvante em Balde", 2, "BD", 420, "BD-20-01", 150, 1, "Galpão B"),
+    package_count: 2,
+    package_unit: "BD",
+    package_volume_liters: 20,
+    quantity_liters: 40,
   },
   demoItem(
     "Semente de Cobertura",
@@ -269,6 +280,8 @@ export function getDemoDashboard(
   filter: string,
   page: number,
   pageSize = 12,
+  sortBy: InventorySortKey = "status",
+  sortDirection: "asc" | "desc" = "asc",
 ): DashboardData {
   const query = search.trim().toLocaleLowerCase("pt-BR");
   const refreshed = items.map(refresh);
@@ -284,6 +297,30 @@ export function getDemoDashboard(
         ? item.status !== "archived"
         : item.status === filter);
     return matches && statusMatches;
+  });
+  const direction = sortDirection === "desc" ? -1 : 1;
+  const statusRank: Record<StockStatus, number> = {
+    expired: 0,
+    expiring: 1,
+    low: 2,
+    ok: 3,
+    out_of_stock: 4,
+    archived: 5,
+  };
+  const sorted = [...filtered].sort((a, b) => {
+    const values: Record<InventorySortKey, [string | number, string | number]> = {
+      description: [a.description.toLocaleLowerCase("pt-BR"), b.description.toLocaleLowerCase("pt-BR")],
+      quantity: [a.quantity_liters ?? a.quantity, b.quantity_liters ?? b.quantity],
+      expires_on: [a.expires_on ?? "9999-12-31", b.expires_on ?? "9999-12-31"],
+      unit_price: [a.unit_price, b.unit_price],
+      sale_unit_price: [a.sale_unit_price, b.sale_unit_price],
+      sale_line_total: [a.sale_line_total, b.sale_line_total],
+      created_at: [a.created_at, b.created_at],
+      invoice: [a.source_type, b.source_type],
+      status: [statusRank[a.status], statusRank[b.status]],
+    };
+    const [left, right] = values[sortBy];
+    return (left < right ? -1 : left > right ? 1 : a.description.localeCompare(b.description, "pt-BR")) * direction;
   });
   const active = refreshed.filter((item) => item.status !== "archived");
   const start = (page - 1) * pageSize;
@@ -306,7 +343,7 @@ export function getDemoDashboard(
       expired_count: active.filter((item) => item.status === "expired").length,
       out_count: active.filter((item) => item.status === "out_of_stock").length,
     },
-    items: filtered.slice(start, start + pageSize),
+    items: sorted.slice(start, start + pageSize),
     total: filtered.length,
     page,
     page_size: pageSize,

@@ -222,15 +222,16 @@ export async function exportInventoryXlsx({
     "Quantidade",
     "Unidade",
     "Quantidade em litros",
-    "Quantidade de galões",
-    "Litros por galão",
+    "Quantidade de embalagens",
+    "Tipo de embalagem",
+    "Litros por embalagem",
     "Lote",
     "Validade",
     "Preço unitário",
     "Valor total",
     "Estoque mínimo",
     "Localização",
-    "Origem",
+    "Data de registro",
     "Status",
     "Observações",
     "Última atualização",
@@ -259,15 +260,16 @@ export async function exportInventoryXlsx({
       item.quantity,
       item.unit,
       item.quantity_liters ?? "",
-      item.gallon_count ?? "",
-      item.gallon_volume_liters ?? "",
+      item.package_count ?? item.gallon_count ?? "",
+      item.package_unit ?? (item.gallon_count != null ? "GL" : ""),
+      item.package_volume_liters ?? item.gallon_volume_liters ?? "",
       item.batch_number || "Sem lote",
       formatDate(item.expires_on),
       item.unit_price,
       item.line_total,
       item.minimum_quantity,
       item.location || "Não informada",
-      item.source_label,
+      dateTime.format(new Date(item.created_at)),
       statusLabels[item.status],
       item.notes || "",
       dateTime.format(new Date(item.updated_at)),
@@ -284,10 +286,13 @@ export async function exportInventoryXlsx({
       cell.border = { bottom: { style: "hair", color: { argb: `FF${line}` } } };
     });
     row.getCell(2).numFmt = "#,##0.0000";
-    row.getCell(6).numFmt = "R$ #,##0.00";
-    row.getCell(7).numFmt = "R$ #,##0.00";
-    row.getCell(8).numFmt = "#,##0.0000";
-    const statusCell = row.getCell(11);
+    row.getCell(4).numFmt = "#,##0.0000";
+    row.getCell(5).numFmt = "#,##0.0000";
+    row.getCell(7).numFmt = "#,##0.0000";
+    row.getCell(10).numFmt = "R$ #,##0.00";
+    row.getCell(11).numFmt = "R$ #,##0.00";
+    row.getCell(12).numFmt = "#,##0.0000";
+    const statusCell = row.getCell(15);
     statusCell.font = {
       name: "Arial",
       size: 9,
@@ -303,7 +308,7 @@ export async function exportInventoryXlsx({
     };
   });
 
-  sheet.autoFilter = { from: "A10", to: `M${Math.max(10, 10 + items.length)}` };
+  sheet.autoFilter = { from: "A10", to: `Q${Math.max(10, 10 + items.length)}` };
   sheet.getRow(10).eachCell((cell) => {
     cell.protection = { locked: true };
   });
@@ -399,15 +404,16 @@ export async function exportInventoryPdf({
         "Quantidade",
         "Un.",
         "Litros",
-        "Galões",
-        "L/galão",
+        "Embalagens",
+        "Tipo",
+        "L/embalagem",
         "Lote",
         "Validade",
         "Preço unit.",
         "Valor",
         "Mínimo",
         "Localização",
-        "Origem",
+        "Data de registro",
         "Status",
         "Observações",
       ],
@@ -417,15 +423,20 @@ export async function exportInventoryPdf({
       number.format(item.quantity),
       item.unit,
       item.quantity_liters == null ? "—" : number.format(item.quantity_liters),
-      item.gallon_count == null ? "—" : number.format(item.gallon_count),
-      item.gallon_volume_liters == null ? "—" : number.format(item.gallon_volume_liters),
+      item.package_count == null && item.gallon_count == null
+        ? "—"
+        : number.format(item.package_count ?? item.gallon_count!),
+      item.package_unit ?? (item.gallon_count != null ? "GL" : "—"),
+      item.package_volume_liters == null && item.gallon_volume_liters == null
+        ? "—"
+        : number.format(item.package_volume_liters ?? item.gallon_volume_liters!),
       item.batch_number || "—",
       formatDate(item.expires_on),
       money.format(item.unit_price),
       money.format(item.line_total),
       number.format(item.minimum_quantity),
       item.location || "—",
-      item.source_label,
+      dateTime.format(new Date(item.created_at)),
       statusLabels[item.status],
       item.notes || "—",
     ]),

@@ -12,6 +12,17 @@ export type AppUser = {
 export type StockStatus =
   "ok" | "low" | "expiring" | "expired" | "out_of_stock" | "archived";
 
+export type InventorySortKey =
+  | "description"
+  | "quantity"
+  | "expires_on"
+  | "unit_price"
+  | "sale_unit_price"
+  | "sale_line_total"
+  | "created_at"
+  | "invoice"
+  | "status";
+
 export type StockItem = {
   stock_item_id: string;
   description: string;
@@ -19,6 +30,9 @@ export type StockItem = {
   unit: string;
   gallon_count?: number | null;
   gallon_volume_liters?: number | null;
+  package_count?: number | null;
+  package_unit?: "GL" | "BD" | string | null;
+  package_volume_liters?: number | null;
   quantity_liters?: number | null;
   batch_number: string | null;
   expires_on: string | null;

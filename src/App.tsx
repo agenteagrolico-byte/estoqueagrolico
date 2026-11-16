@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Archive,
   ArrowDownLeft,
+  ArrowUpDown,
   ArrowRight,
   ArrowUpRight,
   Boxes,
@@ -11,6 +12,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   CircleDollarSign,
   ClipboardList,
   Download,
@@ -51,6 +53,7 @@ import type {
   AppUser,
   DashboardData,
   InventoryDocument,
+  InventorySortKey,
   ItemForm,
   Movement,
   StockItem,
@@ -404,6 +407,8 @@ function InventoryApp({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("active");
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<InventorySortKey>("status");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [modal, setModal] = useState<"create" | "edit" | "adjust" | null>(null);
   const [selected, setSelected] = useState<StockItem | null>(null);
   const [invoiceItem, setInvoiceItem] = useState<StockItem | null>(null);
@@ -413,17 +418,19 @@ function InventoryApp({
   const load = useCallback(async () => {
     setLoading(true);
     if (demoMode) {
-      setData(getDemoDashboard(search, status, page));
+      setData(getDemoDashboard(search, status, page, 12, sortBy, sortDirection));
       setMovements(getDemoMovements(search));
       setLoading(false);
       return;
     }
     const [dashboardResult, movementResult] = await Promise.all([
-      supabase!.rpc("agrolico_inventory_dashboard_v1", {
+      supabase!.rpc("agrolico_inventory_dashboard_v2", {
         p_search: search,
         p_status: status,
         p_page: page,
         p_page_size: 12,
+        p_sort_by: sortBy,
+        p_sort_direction: sortDirection,
       }),
       supabase!.rpc("agrolico_inventory_movements_v1", {
         p_search: search,
@@ -435,7 +442,7 @@ function InventoryApp({
     if (!movementResult.error)
       setMovements((movementResult.data ?? []) as Movement[]);
     setLoading(false);
-  }, [demoMode, page, search, status]);
+  }, [demoMode, page, search, sortBy, sortDirection, status]);
 
   useEffect(() => {
     const timer = setTimeout(load, 220);
@@ -457,6 +464,14 @@ function InventoryApp({
     setModal("adjust");
   };
   const openInvoices = (item: StockItem) => setInvoiceItem(item);
+  const changeSort = (key: InventorySortKey) => {
+    setPage(1);
+    if (key === sortBy) setSortDirection((value) => (value === "asc" ? "desc" : "asc"));
+    else {
+      setSortBy(key);
+      setSortDirection("asc");
+    }
+  };
   async function archive(item: StockItem) {
     if (item.quantity !== 0) {
       setToast("Zere o saldo antes de arquivar o item.");
@@ -495,24 +510,28 @@ function InventoryApp({
     try {
       let complete: DashboardData;
       if (demoMode) {
-        complete = getDemoDashboard("", "active", 1, 100);
+        complete = getDemoDashboard("", "active", 1, 100, sortBy, sortDirection);
       } else {
-        const first = await supabase!.rpc("agrolico_inventory_dashboard_v1", {
+        const first = await supabase!.rpc("agrolico_inventory_dashboard_v2", {
           p_search: "",
           p_status: "active",
           p_page: 1,
           p_page_size: 100,
+          p_sort_by: sortBy,
+          p_sort_direction: sortDirection,
         });
         if (first.error) throw first.error;
         complete = first.data as DashboardData;
         if (complete.page_count > 1) {
           const remaining = await Promise.all(
             Array.from({ length: complete.page_count - 1 }, (_, index) =>
-              supabase!.rpc("agrolico_inventory_dashboard_v1", {
+              supabase!.rpc("agrolico_inventory_dashboard_v2", {
                 p_search: "",
                 p_status: "active",
                 p_page: index + 2,
                 p_page_size: 100,
+                p_sort_by: sortBy,
+                p_sort_direction: sortDirection,
               }),
             ),
           );
@@ -726,6 +745,9 @@ function InventoryApp({
                 onArchive={archive}
                 onExport={exportCompleteInventory}
                 exporting={exporting}
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSort={changeSort}
               />
             )}
             {view === "invoices" && (
@@ -1022,6 +1044,9 @@ function InventoryTable({
   onArchive,
   onExport,
   exporting,
+  sortBy,
+  sortDirection,
+  onSort,
 }: {
   data: DashboardData;
   page: number;
@@ -1033,6 +1058,9 @@ function InventoryTable({
   onArchive: (item: StockItem) => void;
   onExport: (format: "xlsx" | "pdf") => void;
   exporting: "xlsx" | "pdf" | null;
+  sortBy: InventorySortKey;
+  sortDirection: "asc" | "desc";
+  onSort: (key: InventorySortKey) => void;
 }) {
   return (
     <section className="panel table-panel inventory-table-panel">
@@ -1042,6 +1070,22 @@ function InventoryTable({
           <h2>Itens e lotes</h2>
         </div>
         <div className="inventory-header-tools">
+          <div className="inventory-sort-mobile">
+            <select value={sortBy} onChange={(event) => onSort(event.target.value as InventorySortKey)} aria-label="Ordenar estoque por">
+              <option value="description">Produto</option>
+              <option value="quantity">Saldo</option>
+              <option value="expires_on">Validade</option>
+              <option value="unit_price">Custo unitário</option>
+              <option value="sale_unit_price">Preço de venda</option>
+              <option value="sale_line_total">Valor de venda</option>
+              <option value="created_at">Data de registro</option>
+              <option value="invoice">Nota fiscal</option>
+              <option value="status">Status</option>
+            </select>
+            <button type="button" onClick={() => onSort(sortBy)} aria-label={`Ordenação ${sortDirection === "asc" ? "crescente" : "decrescente"}`}>
+              {sortDirection === "asc" ? <ChevronUp /> : <ChevronDown />}
+            </button>
+          </div>
           <div className="legend">
             <span>
               <i className="dot danger" />
@@ -1063,15 +1107,15 @@ function InventoryTable({
         <table className="inventory-table">
           <thead>
             <tr>
-              <th>Produto</th>
-              <th>Saldo</th>
-              <th>Validade</th>
-              <th>Custo unit.</th>
-              <th>Preço de venda</th>
-              <th>Valor de venda</th>
-              <th>Origem</th>
-              <th>Nota fiscal</th>
-              <th>Status</th>
+              <SortableHeader label="Produto" sortKey="description" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Saldo" sortKey="quantity" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Validade" sortKey="expires_on" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Custo unit." sortKey="unit_price" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Preço de venda" sortKey="sale_unit_price" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Valor de venda" sortKey="sale_line_total" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Data de registro" sortKey="created_at" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Nota fiscal" sortKey="invoice" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
+              <SortableHeader label="Status" sortKey="status" activeKey={sortBy} direction={sortDirection} onSort={onSort} />
               <th>
                 <span className="sr-only">Ações</span>
               </th>
@@ -1093,8 +1137,8 @@ function InventoryTable({
                 </td>
                 <td data-label="Saldo" className="quantity-cell">
                   <strong>{formatPrimaryStockQuantity(item)}</strong>
-                  {isGallonStock(item) && (
-                    <small className="gallon-detail">{formatGallonDetail(item)}</small>
+                  {isVolumePackageStock(item) && (
+                    <small className="package-detail">{formatPackageDetail(item)}</small>
                   )}
                   <small>Mín. {number.format(item.minimum_quantity)}</small>
                 </td>
@@ -1114,8 +1158,8 @@ function InventoryTable({
                 <td data-label="Valor de venda">
                   <strong>{money.format(item.sale_line_total)}</strong>
                 </td>
-                <td data-label="Origem">
-                  <span className="source-tag">{item.source_label}</span>
+                <td data-label="Data de registro">
+                  <span className="registration-date">{dateTime.format(new Date(item.created_at))}</span>
                 </td>
                 <td data-label="Nota fiscal">
                   <button
@@ -1187,6 +1231,30 @@ function InventoryTable({
         </footer>
       )}
     </section>
+  );
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onSort,
+}: {
+  label: string;
+  sortKey: InventorySortKey;
+  activeKey: InventorySortKey;
+  direction: "asc" | "desc";
+  onSort: (key: InventorySortKey) => void;
+}) {
+  const active = sortKey === activeKey;
+  return (
+    <th aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
+      <button className={`sort-header ${active ? "active" : ""}`} type="button" onClick={() => onSort(sortKey)}>
+        <span>{label}</span>
+        {active ? (direction === "asc" ? <ChevronUp /> : <ChevronDown />) : <ArrowUpDown />}
+      </button>
+    </th>
   );
 }
 
@@ -2258,31 +2326,35 @@ function alertDetail(item: StockItem) {
   return "Saldo zerado";
 }
 
-function isGallonStock(item: StockItem) {
+function isVolumePackageStock(item: StockItem) {
+  const count = item.package_count ?? item.gallon_count;
+  const volume = item.package_volume_liters ?? item.gallon_volume_liters;
   return (
-    item.unit?.trim().toUpperCase() === "GL" &&
-    item.gallon_count != null &&
-    item.gallon_volume_liters != null &&
+    ["GL", "BD"].includes(String(item.package_unit ?? item.unit).trim().toUpperCase()) &&
+    count != null &&
+    volume != null &&
     item.quantity_liters != null
   );
 }
 
 function formatPrimaryStockQuantity(item: StockItem) {
-  if (isGallonStock(item)) return `${number.format(item.quantity_liters!)} L`;
+  if (isVolumePackageStock(item)) return `${number.format(item.quantity_liters!)} L`;
   return `${number.format(item.quantity)} ${item.unit}`;
 }
 
-function formatGallonDetail(item: StockItem) {
-  if (!isGallonStock(item)) return "";
-  const count = item.gallon_count!;
-  const label = count === 1 ? "galão" : "galões";
-  return `${number.format(count)} ${label} de ${number.format(item.gallon_volume_liters!)} L`;
+function formatPackageDetail(item: StockItem) {
+  if (!isVolumePackageStock(item)) return "";
+  const count = item.package_count ?? item.gallon_count!;
+  const volume = item.package_volume_liters ?? item.gallon_volume_liters!;
+  const bucket = String(item.package_unit ?? item.unit).trim().toUpperCase() === "BD";
+  const label = bucket ? (count === 1 ? "balde" : "baldes") : count === 1 ? "galão" : "galões";
+  return `${number.format(count)} ${label} de ${number.format(volume)} L`;
 }
 
 function formatStockBalance(item: StockItem) {
   const primary = formatPrimaryStockQuantity(item);
-  const gallons = formatGallonDetail(item);
-  return gallons ? `${primary} · ${gallons}` : primary;
+  const packages = formatPackageDetail(item);
+  return packages ? `${primary} · ${packages}` : primary;
 }
 function permissionList(role: string) {
   if (role === "manager")
