@@ -203,6 +203,7 @@ tbody tr:hover { background: #fbfcf8; }
 .product-cell b { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .product-cell span, .quantity-cell small { display: block; color: var(--muted); font-size: 9px; }
 .quantity-cell .package-detail { color: #26543c; font-weight: 700; }
+.quantity-cell .conversion-pending { max-width: 190px; color: #9a5d00; font-weight: 800; white-space: normal; }
 .registration-date { white-space: nowrap; font-weight: 700; color: #304338; }
 
 @media (max-width: 760px) {

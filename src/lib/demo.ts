@@ -63,6 +63,19 @@ let items: StockItem[] = [
     package_volume_liters: 20,
     quantity_liters: 40,
   },
+  {
+    ...demoItem("CROPTEC Rapid CIT - 5L", 9.91, "UN", 55, "RAP-860-26-1000", 20, 2, "Galpão A"),
+    package_count: 9.91,
+    package_unit: "UN",
+    package_volume_liters: 5,
+    quantity_liters: 49.55,
+  },
+  {
+    ...demoItem("Roundup Original", 49, "UN", 16.8, "", 12, 10, "Galpão A"),
+    package_count: 49,
+    package_unit: "UN",
+    conversion_pending: true,
+  },
   demoItem(
     "Semente de Cobertura",
     120,
@@ -310,7 +323,7 @@ export function getDemoDashboard(
   const sorted = [...filtered].sort((a, b) => {
     const values: Record<InventorySortKey, [string | number, string | number]> = {
       description: [a.description.toLocaleLowerCase("pt-BR"), b.description.toLocaleLowerCase("pt-BR")],
-      quantity: [a.quantity_liters ?? a.quantity, b.quantity_liters ?? b.quantity],
+      quantity: [a.quantity_liters ?? a.quantity_kg ?? a.quantity, b.quantity_liters ?? b.quantity_kg ?? b.quantity],
       expires_on: [a.expires_on ?? "9999-12-31", b.expires_on ?? "9999-12-31"],
       unit_price: [a.unit_price, b.unit_price],
       sale_unit_price: [a.sale_unit_price, b.sale_unit_price],

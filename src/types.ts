@@ -33,7 +33,10 @@ export type StockItem = {
   package_count?: number | null;
   package_unit?: "GL" | "BD" | string | null;
   package_volume_liters?: number | null;
+  package_mass_kg?: number | null;
   quantity_liters?: number | null;
+  quantity_kg?: number | null;
+  conversion_pending?: boolean;
   batch_number: string | null;
   expires_on: string | null;
   unit_price: number;
@@ -60,6 +63,7 @@ export type Summary = {
   expiring_count: number;
   expired_count: number;
   out_count: number;
+  conversion_pending_count?: number;
 };
 
 export type DashboardData = {

@@ -1140,6 +1140,9 @@ function InventoryTable({
                   {isVolumePackageStock(item) && (
                     <small className="package-detail">{formatPackageDetail(item)}</small>
                   )}
+                  {item.conversion_pending && (
+                    <small className="conversion-pending">Conversão pendente: informe L ou KG por unidade</small>
+                  )}
                   <small>Mín. {number.format(item.minimum_quantity)}</small>
                 </td>
                 <td data-label="Validade">
@@ -2328,27 +2331,34 @@ function alertDetail(item: StockItem) {
 
 function isVolumePackageStock(item: StockItem) {
   const count = item.package_count ?? item.gallon_count;
-  const volume = item.package_volume_liters ?? item.gallon_volume_liters;
+  const size = item.package_volume_liters ?? item.gallon_volume_liters ?? item.package_mass_kg;
+  const canonicalQuantity = item.quantity_liters ?? item.quantity_kg;
   return (
-    ["GL", "BD"].includes(String(item.package_unit ?? item.unit).trim().toUpperCase()) &&
+    ["GL", "BD", "UN"].includes(String(item.package_unit ?? item.unit).trim().toUpperCase()) &&
     count != null &&
-    volume != null &&
-    item.quantity_liters != null
+    size != null &&
+    canonicalQuantity != null
   );
 }
 
 function formatPrimaryStockQuantity(item: StockItem) {
-  if (isVolumePackageStock(item)) return `${number.format(item.quantity_liters!)} L`;
+  if (isVolumePackageStock(item) && item.quantity_liters != null) return `${number.format(item.quantity_liters)} L`;
+  if (isVolumePackageStock(item) && item.quantity_kg != null) return `${number.format(item.quantity_kg)} KG`;
   return `${number.format(item.quantity)} ${item.unit}`;
 }
 
 function formatPackageDetail(item: StockItem) {
   if (!isVolumePackageStock(item)) return "";
   const count = item.package_count ?? item.gallon_count!;
-  const volume = item.package_volume_liters ?? item.gallon_volume_liters!;
-  const bucket = String(item.package_unit ?? item.unit).trim().toUpperCase() === "BD";
-  const label = bucket ? (count === 1 ? "balde" : "baldes") : count === 1 ? "galão" : "galões";
-  return `${number.format(count)} ${label} de ${number.format(volume)} L`;
+  const size = item.package_volume_liters ?? item.gallon_volume_liters ?? item.package_mass_kg!;
+  const sizeUnit = item.package_mass_kg != null ? "KG" : "L";
+  const packageUnit = String(item.package_unit ?? item.unit).trim().toUpperCase();
+  const label = packageUnit === "BD"
+    ? count === 1 ? "balde" : "baldes"
+    : packageUnit === "GL"
+      ? count === 1 ? "galão" : "galões"
+      : count === 1 ? "unidade" : "unidades";
+  return `${number.format(count)} ${label} de ${number.format(size)} ${sizeUnit}`;
 }
 
 function formatStockBalance(item: StockItem) {

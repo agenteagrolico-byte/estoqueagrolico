@@ -222,9 +222,11 @@ export async function exportInventoryXlsx({
     "Quantidade",
     "Unidade",
     "Quantidade em litros",
+    "Quantidade em quilogramas",
     "Quantidade de embalagens",
     "Tipo de embalagem",
     "Litros por embalagem",
+    "Quilogramas por embalagem",
     "Lote",
     "Validade",
     "Preço unitário",
@@ -260,9 +262,11 @@ export async function exportInventoryXlsx({
       item.quantity,
       item.unit,
       item.quantity_liters ?? "",
+      item.quantity_kg ?? "",
       item.package_count ?? item.gallon_count ?? "",
       item.package_unit ?? (item.gallon_count != null ? "GL" : ""),
       item.package_volume_liters ?? item.gallon_volume_liters ?? "",
+      item.package_mass_kg ?? "",
       item.batch_number || "Sem lote",
       formatDate(item.expires_on),
       item.unit_price,
@@ -288,11 +292,13 @@ export async function exportInventoryXlsx({
     row.getCell(2).numFmt = "#,##0.0000";
     row.getCell(4).numFmt = "#,##0.0000";
     row.getCell(5).numFmt = "#,##0.0000";
-    row.getCell(7).numFmt = "#,##0.0000";
-    row.getCell(10).numFmt = "R$ #,##0.00";
-    row.getCell(11).numFmt = "R$ #,##0.00";
-    row.getCell(12).numFmt = "#,##0.0000";
-    const statusCell = row.getCell(15);
+    row.getCell(6).numFmt = "#,##0.0000";
+    row.getCell(8).numFmt = "#,##0.0000";
+    row.getCell(9).numFmt = "#,##0.0000";
+    row.getCell(12).numFmt = "R$ #,##0.00";
+    row.getCell(13).numFmt = "R$ #,##0.00";
+    row.getCell(14).numFmt = "#,##0.0000";
+    const statusCell = row.getCell(17);
     statusCell.font = {
       name: "Arial",
       size: 9,
@@ -308,7 +314,7 @@ export async function exportInventoryXlsx({
     };
   });
 
-  sheet.autoFilter = { from: "A10", to: `Q${Math.max(10, 10 + items.length)}` };
+  sheet.autoFilter = { from: "A10", to: `S${Math.max(10, 10 + items.length)}` };
   sheet.getRow(10).eachCell((cell) => {
     cell.protection = { locked: true };
   });
@@ -401,12 +407,10 @@ export async function exportInventoryPdf({
     head: [
       [
         "Produto",
-        "Quantidade",
-        "Un.",
-        "Litros",
+        "Saldo final",
         "Embalagens",
         "Tipo",
-        "L/embalagem",
+        "Tamanho/emb.",
         "Lote",
         "Validade",
         "Preço unit.",
@@ -420,16 +424,18 @@ export async function exportInventoryPdf({
     ],
     body: items.map((item) => [
       item.description,
-      number.format(item.quantity),
-      item.unit,
-      item.quantity_liters == null ? "—" : number.format(item.quantity_liters),
+      item.quantity_liters != null
+        ? `${number.format(item.quantity_liters)} L`
+        : item.quantity_kg != null
+          ? `${number.format(item.quantity_kg)} KG`
+          : `${number.format(item.quantity)} ${item.unit}`,
       item.package_count == null && item.gallon_count == null
         ? "—"
         : number.format(item.package_count ?? item.gallon_count!),
       item.package_unit ?? (item.gallon_count != null ? "GL" : "—"),
-      item.package_volume_liters == null && item.gallon_volume_liters == null
+      item.package_volume_liters == null && item.gallon_volume_liters == null && item.package_mass_kg == null
         ? "—"
-        : number.format(item.package_volume_liters ?? item.gallon_volume_liters!),
+        : `${number.format(item.package_volume_liters ?? item.gallon_volume_liters ?? item.package_mass_kg!)} ${item.package_mass_kg != null ? "KG" : "L"}`,
       item.batch_number || "—",
       formatDate(item.expires_on),
       money.format(item.unit_price),
