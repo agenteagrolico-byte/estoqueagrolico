@@ -30,6 +30,14 @@ export function setRememberSessionPreference(remember: boolean) {
   else window.localStorage.removeItem(rememberSessionKey)
 }
 
+export function clearStoredSession() {
+  if (typeof window === 'undefined' || !url) return
+  const projectRef = new URL(url).hostname.split('.')[0]
+  const key = `sb-${projectRef}-auth-token`
+  window.localStorage.removeItem(key)
+  window.sessionStorage.removeItem(key)
+}
+
 const authStorage = {
   getItem(key: string) {
     if (typeof window === 'undefined') return null

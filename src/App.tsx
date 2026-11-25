@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import {
+  clearStoredSession,
   getRememberSessionPreference,
   hasSupabaseConfig,
   setRememberSessionPreference,
@@ -69,6 +70,7 @@ import {
   EXPIRED_SESSION_MESSAGE,
   isExpiredAuthError,
   SESSION_EXPIRED_EVENT,
+  withAuthTimeout,
 } from "./lib/auth-errors";
 
 const emptyForm: ItemForm = {
@@ -118,6 +120,7 @@ function App() {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [checking, setChecking] = useState(true);
   const [authError, setAuthError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const expiringSession = useRef(false);
 
   const expireSession = useCallback(async () => {
@@ -139,22 +142,39 @@ function App() {
       setChecking(false);
       return;
     }
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (error && isExpiredAuthError(error)) {
-        void expireSession();
-        return;
-      }
-      setSession(data.session);
-      setChecking(false);
-    });
+    let active = true;
+    void withAuthTimeout(supabase.auth.getSession())
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error && isExpiredAuthError(error)) {
+          void expireSession();
+          return;
+        }
+        if (error) {
+          setLoadError(error.message);
+        } else {
+          setSession(data.session);
+          setLoadError("");
+        }
+        setChecking(false);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setLoadError(error instanceof Error ? error.message : "Falha ao verificar a sessão.");
+        setChecking(false);
+      });
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         expiringSession.current = false;
         setAuthError("");
+        setLoadError("");
       }
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, [demoMode, expireSession]);
 
   useEffect(() => {
@@ -172,19 +192,25 @@ function App() {
     }
     setChecking(true);
     let active = true;
-    supabase.rpc("agrolico_inventory_me_v1").then(({ data, error }) => {
-      if (!active) return;
-      if (error && isExpiredAuthError(error)) {
-        void expireSession();
-        return;
-      }
-      if (error) setAuthError(error.message);
-      else {
-        setAuthError("");
-        setAppUser(data as AppUser | null);
-      }
-      setChecking(false);
-    });
+    void withAuthTimeout(supabase.rpc("agrolico_inventory_me_v1"))
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error && isExpiredAuthError(error)) {
+          void expireSession();
+          return;
+        }
+        if (error) setLoadError(error.message);
+        else {
+          setLoadError("");
+          setAppUser(data as AppUser | null);
+        }
+        setChecking(false);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setLoadError(error instanceof Error ? error.message : "Falha ao consultar o acesso ao estoque.");
+        setChecking(false);
+      });
     return () => {
       active = false;
     };
@@ -205,6 +231,17 @@ function App() {
     );
   if (!hasSupabaseConfig) return <ConfigurationScreen />;
   if (checking) return <Splash />;
+  if (loadError)
+    return (
+      <LoadError
+        detail={loadError}
+        onRetry={() => window.location.reload()}
+        onReset={() => {
+          clearStoredSession();
+          window.location.reload();
+        }}
+      />
+    );
   if (!session) return <Login onError={setAuthError} error={authError} />;
   if (!appUser)
     return (
@@ -226,6 +263,30 @@ function Splash() {
       <LoaderCircle className="spin" />
       <span>Preparando seu estoque</span>
     </div>
+  );
+}
+
+function LoadError({
+  detail,
+  onRetry,
+  onReset,
+}: {
+  detail: string;
+  onRetry: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <main className="center-page">
+      <section className="setup-card" role="alert">
+        <AlertTriangle size={38} />
+        <p className="eyebrow">Falha ao carregar</p>
+        <h1>Não foi possível preparar seu estoque</h1>
+        <p>A verificação de acesso falhou ou demorou demais. Tente novamente; se continuar, entre de novo.</p>
+        <p className="muted">Detalhe: {detail}</p>
+        <button className="primary-button" onClick={onRetry}>Tentar novamente</button>
+        <button className="secondary-button" onClick={onReset}>Entrar novamente</button>
+      </section>
+    </main>
   );
 }
 
@@ -271,12 +332,16 @@ function Login({
     setLoading(true);
     onError("");
     setRememberSessionPreference(rememberSession);
-    const { error: loginError } = await supabase!.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (loginError) onError("E-mail ou senha não conferem. Tente novamente.");
-    setLoading(false);
+    try {
+      const { error: loginError } = await withAuthTimeout(
+        supabase!.auth.signInWithPassword({ email, password }),
+      );
+      if (loginError) onError("E-mail ou senha não conferem. Tente novamente.");
+    } catch {
+      onError("Não foi possível concluir o acesso. Recarregue a página e tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   }
   return (
     <main className="login-page">

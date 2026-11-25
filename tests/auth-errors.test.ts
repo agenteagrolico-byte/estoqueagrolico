@@ -3,7 +3,15 @@ import test from "node:test";
 import {
   EXPIRED_SESSION_MESSAGE,
   isExpiredAuthError,
+  withAuthTimeout,
 } from "../src/lib/auth-errors.ts";
+
+test("encerra uma verificacao de acesso que nunca responde", async () => {
+  await assert.rejects(
+    withAuthTimeout(new Promise<never>(() => {}), 10),
+    /consulta de acesso demorou demais/i,
+  );
+});
 
 test("identifica o erro JWT expirado retornado pelo PostgREST", () => {
   assert.equal(

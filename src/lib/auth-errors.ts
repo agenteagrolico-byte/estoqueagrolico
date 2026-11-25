@@ -1,5 +1,16 @@
 export const EXPIRED_SESSION_MESSAGE = "Sua sessão expirou. Entre novamente.";
 export const SESSION_EXPIRED_EVENT = "agrolico:session-expired";
+export const AUTH_CHECK_TIMEOUT_MS = 12000;
+
+export function withAuthTimeout<T>(request: PromiseLike<T>, timeoutMs = AUTH_CHECK_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    Promise.resolve(request),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("A consulta de acesso demorou demais.")), timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 type ErrorLike = {
   code?: unknown;
